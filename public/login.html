@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in — Chaotic Crew</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <aside class="auth-panel" aria-hidden="false">
+      <div class="panel-glow" aria-hidden="true"></div>
+      <div class="panel-content">
+        <p class="panel-kicker"></p>
+        <h1 class="panel-brand">Chaotic Crew</h1>
+        <p class="panel-lead">Not every break-in starts with the username and password fields.</p>
+        <p class="lab-hint">Hint: a valid session is concealed in the <code>sid</code> cookie — intercept login with Burp, then replay it to reach <code>/home</code>.</p>
+      </div>
+    </aside>
+
+    <main class="auth-main">
+      <header class="top-nav">
+        <span class="nav-brand">Chaotic Crew</span>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="/login" class="nav-link active">Sign in</a>
+          <a href="/home" class="nav-link">Dashboard</a>
+        </nav>
+      </header>
+
+      <div class="auth-form-wrap">
+        <div class="form-intro">
+          <h2 class="form-title">Welcome back</h2>
+          <p class="form-subtitle">Sign in with your account credentials to continue.</p>
+        </div>
+
+        <form id="login-form" class="auth-form" novalidate>
+          <input type="hidden" name="_csrf" id="csrf-token" value="">
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              placeholder="Enter username"
+              required
+              maxlength="64"
+              spellcheck="false"
+            >
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Enter password"
+              required
+              maxlength="128"
+            >
+          </div>
+          <p id="error-message" class="error-message" role="alert" hidden></p>
+          <button type="submit" class="btn primary" id="submit-btn">Sign in</button>
+        </form>
+      </div>
+    </main>
+  </div>
+  <script src="js/login.js"></script>
+</body>
+</html>

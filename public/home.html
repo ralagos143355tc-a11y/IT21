@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Chaotic Crew</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="dash-page">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <span class="nav-brand">IT21</span>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="/login" class="nav-link">Sign in</a>
+        <a href="/home" class="nav-link active">Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="dash-main">
+    <section class="dash-hero">
+      <p class="dash-kicker">Authenticated session</p>
+      <h1 class="dash-title">Welcome, <span>{{USER}}</span></h1>
+      <p class="dash-copy">You are signed in. This dashboard is only reachable with a valid server-side session cookie.</p>
+      <button type="button" id="logout-btn" class="btn primary btn-inline">Sign out</button>
+    </section>
+  </main>
+  <script src="js/logout.js"></script>
+</body>
+</html>
