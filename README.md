@@ -9,7 +9,7 @@ A Node.js and Express web application with server-side session authentication, C
 - CSRF tokens on login and logout
 - Rate limiting on login attempts (5 tries per 2 minutes)
 - Security headers via Helmet (including Content Security Policy)
-- Session regeneration after successful login
+- Cookie-backed sessions (works on Vercel serverless)
 - Protected routes and static assets for unauthenticated users
 
 ## Requirements
@@ -46,6 +46,24 @@ A Node.js and Express web application with server-side session authentication, C
    ```
 
 5. **Open the app** at [http://localhost:3000](http://localhost:3000)
+
+## Deploy on Vercel
+
+The npm deprecation warnings during install are harmless. The **500 FUNCTION_INVOCATION_FAILED** error happens when required secrets are missing or the app is not set up as a serverless function.
+
+1. Push this repo to GitHub (already connected if you linked it).
+2. In Vercel → **Project → Settings → Environment Variables**, add:
+
+| Name | Value | Notes |
+|------|--------|--------|
+| `SESSION_SECRET` | long random string (32+ chars) | Required |
+| `ADMIN_PASSWORD` | your password (8+ chars) | Required |
+| `ADMIN_USERNAME` | `admin` | Optional |
+
+3. Redeploy (Deployments → … → Redeploy), or push a new commit.
+4. Open your `*.vercel.app` URL and sign in with those credentials.
+
+`COOKIE_SECURE` defaults to on for Vercel (HTTPS). Local `npm start` still uses your `.env` file.
 
 ## Default Credentials
 
