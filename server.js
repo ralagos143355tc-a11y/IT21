@@ -20,7 +20,7 @@ const COOKIE_SECURE =
   process.env.COOKIE_SECURE === 'true' ||
   (IS_VERCEL && process.env.COOKIE_SECURE !== 'false');
 
-const configOk = SESSION_SECRET.length >= 32 && ADMIN_PASSWORD.length >= 8;
+const configOk = SESSION_SECRET.length >= 16 && ADMIN_PASSWORD.length >= 8;
 
 function readPublic(fileName) {
   const filePath = path.join(__dirname, 'public', fileName);
@@ -39,7 +39,7 @@ function configErrorPage(res) {
   <h1>Server configuration error</h1>
   <p>Required environment variables are missing or too short.</p>
   <ul>
-    <li><code>SESSION_SECRET</code> must be at least <strong>32</strong> characters (current length: ${SESSION_SECRET.length})</li>
+    <li><code>SESSION_SECRET</code> must be at least <strong>16</strong> characters (current length: ${SESSION_SECRET.length})</li>
     <li><code>ADMIN_PASSWORD</code> must be at least <strong>8</strong> characters (current length: ${ADMIN_PASSWORD.length})</li>
   </ul>
   <p>After changing variables in Vercel, you must <strong>Redeploy</strong> for them to apply.</p>
@@ -245,7 +245,8 @@ app.use((req, res) => {
 
 module.exports = app;
 
-if (require.main === module) {
+// Only bind a port for local `node server.js` — never on Vercel.
+if (require.main === module && !IS_VERCEL) {
   if (!configOk) {
     console.error('FATAL: Set SESSION_SECRET (min 32 chars) and ADMIN_PASSWORD (min 8 chars).');
     process.exit(1);
