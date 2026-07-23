@@ -1,20 +1,14 @@
+// Local development entry. Vercel uses api/index.js instead.
 const express = require('express');
 const app = express();
-
-app.get('/health', (req, res) => {
-  res.json({
-    ok: true,
-    hasSessionSecret: Boolean(process.env.SESSION_SECRET),
-    sessionSecretLength: (process.env.SESSION_SECRET || '').length,
-    hasAdminPassword: Boolean(process.env.ADMIN_PASSWORD),
-    adminPasswordLength: (process.env.ADMIN_PASSWORD || '').length,
-    hasAdminUsername: Boolean(process.env.ADMIN_USERNAME),
-    vercel: Boolean(process.env.VERCEL),
-  });
-});
+const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.type('html').send('<h1>IT21 is running on Vercel</h1><p><a href="/health">/health</a></p>');
+  res.send('Use npm start locally. Production is served via api/index.js on Vercel.');
 });
+
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`http://localhost:${PORT}`));
+}
 
 module.exports = app;
