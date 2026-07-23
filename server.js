@@ -20,6 +20,24 @@ const COOKIE_SECURE =
   process.env.COOKIE_SECURE === 'true' ||
   (IS_VERCEL && process.env.COOKIE_SECURE !== 'false');
 
+const configOk =
+  Boolean(SESSION_SECRET && SESSION_SECRET.length >= 32) &&
+  Boolean(ADMIN_PASSWORD && ADMIN_PASSWORD.length >= 8);
+
+function publicPath(...parts) {
+  const candidates = [
+    path.join(__dirname, 'public', ...parts),
+    path.join(process.cwd(), 'public', ...parts),
+    path.join(__dirname, '..', 'public', ...parts),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0];
+}
+
 function configErrorPage(res) {
   res.status(500).type('html').send(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Config error</title></head>
@@ -36,16 +54,32 @@ function configErrorPage(res) {
 </body></html>`);
 }
 
-if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) {
+if (!configOk) {
   console.error('FATAL: Set SESSION_SECRET (min 32 chars) and ADMIN_PASSWORD (min 8 chars).');
   if (!IS_VERCEL) {
     process.exit(1);
   }
-  app.use((req, res) => configErrorPage(res));
-  module.exports = app;
-} else {
+}
+
+app.set('trust proxy', 1);
+
+app.use((req, res, next) => {
+  if (!configOk) {
+    configErrorPage(res);
+    return;
+  }
+  next();
+});
+
+if (configOk) {
   const passwordHashPromise = bcrypt.hash(ADMIN_PASSWORD, 12);
-  const homeTemplate = fs.readFileSync(path.join(__dirname, 'public', 'home.html'), 'utf8');
+  let homeTemplate;
+  try {
+    homeTemplate = fs.readFileSync(publicPath('home.html'), 'utf8');
+  } catch (err) {
+    console.error('Unable to load home.html:', err.message);
+    homeTemplate = null;
+  }
 
   const loginLimiter = rateLimit({
     windowMs: 2 * 60 * 1000,
@@ -55,8 +89,6 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PA
     message: { error: 'Too many login attempts. Try again in 2 minutes.' },
     skipSuccessfulRequests: true,
   });
-
-  app.set('trust proxy', 1);
 
   app.use(
     helmet({
@@ -80,7 +112,6 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PA
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
-  // Cookie-backed sessions work on Vercel serverless (no in-memory store).
   app.use(
     cookieSession({
       name: 'sid',
@@ -145,7 +176,12 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PA
   }
 
   app.get('/login', redirectIfAuthenticated, ensureCsrfToken, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    const loginFile = publicPath('login.html');
+    if (!fs.existsSync(loginFile)) {
+      res.status(500).send('login.html missing from deployment bundle.');
+      return;
+    }
+    res.sendFile(loginFile);
   });
 
   app.get('/api/csrf-token', ensureCsrfToken, (req, res) => {
@@ -187,12 +223,18 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PA
   });
 
   app.get('/home', requireAuth, (req, res) => {
+    if (!homeTemplate) {
+      res.status(500).send('home.html missing from deployment bundle.');
+      return;
+    }
     res.type('html').send(homeTemplate.replace('{{USER}}', escapeHtml(req.session.user)));
   });
 
-  app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
-  app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
-  app.use('/assets', express.static(path.join(__dirname, 'public')));
+  const cssDir = path.dirname(publicPath('css', 'login.css'));
+  const jsDir = path.dirname(publicPath('js', 'login.js'));
+  app.use('/css', express.static(cssDir));
+  app.use('/js', express.static(jsDir));
+  app.use('/assets', express.static(path.dirname(publicPath('login.html'))));
 
   app.get('/', (req, res) => {
     if (req.session && req.session.authenticated) {
@@ -201,16 +243,20 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32 || !ADMIN_PASSWORD || ADMIN_PA
     }
     res.redirect('/login');
   });
+}
 
-  app.use((req, res) => {
-    res.status(404).send('Not found');
-  });
-
-  module.exports = app;
-
-  if (require.main === module) {
-    app.listen(PORT, () => {
-      console.log(`Secure login running at http://localhost:${PORT}`);
-    });
+app.use((req, res) => {
+  if (!configOk) {
+    configErrorPage(res);
+    return;
   }
+  res.status(404).send('Not found');
+});
+
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Secure login running at http://localhost:${PORT}`);
+  });
 }
