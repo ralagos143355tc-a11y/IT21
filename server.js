@@ -13,29 +13,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_VERCEL = Boolean(process.env.VERCEL);
 
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const COOKIE_SECURE =
   process.env.COOKIE_SECURE === 'true' ||
   (IS_VERCEL && process.env.COOKIE_SECURE !== 'false');
 
-const configOk =
-  Boolean(SESSION_SECRET && SESSION_SECRET.length >= 32) &&
-  Boolean(ADMIN_PASSWORD && ADMIN_PASSWORD.length >= 8);
+const configOk = SESSION_SECRET.length >= 32 && ADMIN_PASSWORD.length >= 8;
 
-function publicPath(...parts) {
-  const candidates = [
-    path.join(__dirname, 'public', ...parts),
-    path.join(process.cwd(), 'public', ...parts),
-    path.join(__dirname, '..', 'public', ...parts),
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return candidates[0];
+function readPublic(fileName) {
+  const filePath = path.join(__dirname, 'public', fileName);
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function sendPublicFile(res, fileName) {
+  const filePath = path.join(__dirname, 'public', fileName);
+  res.sendFile(filePath);
 }
 
 function configErrorPage(res) {
@@ -43,25 +37,26 @@ function configErrorPage(res) {
 <html lang="en"><head><meta charset="UTF-8"><title>Config error</title></head>
 <body style="font-family:system-ui;max-width:40rem;margin:3rem auto;padding:0 1rem;line-height:1.5">
   <h1>Server configuration error</h1>
-  <p>Required environment variables are missing on this host.</p>
-  <p>In the Vercel dashboard go to <strong>Settings → Environment Variables</strong> and add:</p>
+  <p>Required environment variables are missing or too short.</p>
   <ul>
-    <li><code>SESSION_SECRET</code> — at least 32 random characters</li>
-    <li><code>ADMIN_PASSWORD</code> — at least 8 characters</li>
-    <li><code>ADMIN_USERNAME</code> — optional (default <code>admin</code>)</li>
+    <li><code>SESSION_SECRET</code> must be at least <strong>32</strong> characters (current length: ${SESSION_SECRET.length})</li>
+    <li><code>ADMIN_PASSWORD</code> must be at least <strong>8</strong> characters (current length: ${ADMIN_PASSWORD.length})</li>
   </ul>
-  <p>Then redeploy the project.</p>
+  <p>After changing variables in Vercel, you must <strong>Redeploy</strong> for them to apply.</p>
 </body></html>`);
 }
 
-if (!configOk) {
-  console.error('FATAL: Set SESSION_SECRET (min 32 chars) and ADMIN_PASSWORD (min 8 chars).');
-  if (!IS_VERCEL) {
-    process.exit(1);
-  }
-}
-
 app.set('trust proxy', 1);
+
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    vercel: IS_VERCEL,
+    configOk,
+    sessionSecretLength: SESSION_SECRET.length,
+    adminPasswordLength: ADMIN_PASSWORD.length,
+  });
+});
 
 app.use((req, res, next) => {
   if (!configOk) {
@@ -73,12 +68,11 @@ app.use((req, res, next) => {
 
 if (configOk) {
   const passwordHashPromise = bcrypt.hash(ADMIN_PASSWORD, 12);
-  let homeTemplate;
+  let homeTemplate = '';
   try {
-    homeTemplate = fs.readFileSync(publicPath('home.html'), 'utf8');
+    homeTemplate = readPublic('home.html');
   } catch (err) {
-    console.error('Unable to load home.html:', err.message);
-    homeTemplate = null;
+    console.error('home.html not found in bundle:', err.message);
   }
 
   const loginLimiter = rateLimit({
@@ -176,12 +170,11 @@ if (configOk) {
   }
 
   app.get('/login', redirectIfAuthenticated, ensureCsrfToken, (req, res) => {
-    const loginFile = publicPath('login.html');
-    if (!fs.existsSync(loginFile)) {
-      res.status(500).send('login.html missing from deployment bundle.');
-      return;
+    try {
+      sendPublicFile(res, 'login.html');
+    } catch (err) {
+      res.status(500).send('login.html missing from deployment bundle: ' + err.message);
     }
-    res.sendFile(loginFile);
   });
 
   app.get('/api/csrf-token', ensureCsrfToken, (req, res) => {
@@ -224,17 +217,14 @@ if (configOk) {
 
   app.get('/home', requireAuth, (req, res) => {
     if (!homeTemplate) {
-      res.status(500).send('home.html missing from deployment bundle.');
+      res.status(500).send('home.html missing from deployment bundle. Check vercel.json includeFiles.');
       return;
     }
     res.type('html').send(homeTemplate.replace('{{USER}}', escapeHtml(req.session.user)));
   });
 
-  const cssDir = path.dirname(publicPath('css', 'login.css'));
-  const jsDir = path.dirname(publicPath('js', 'login.js'));
-  app.use('/css', express.static(cssDir));
-  app.use('/js', express.static(jsDir));
-  app.use('/assets', express.static(path.dirname(publicPath('login.html'))));
+  app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
+  app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
   app.get('/', (req, res) => {
     if (req.session && req.session.authenticated) {
@@ -256,6 +246,10 @@ app.use((req, res) => {
 module.exports = app;
 
 if (require.main === module) {
+  if (!configOk) {
+    console.error('FATAL: Set SESSION_SECRET (min 32 chars) and ADMIN_PASSWORD (min 8 chars).');
+    process.exit(1);
+  }
   app.listen(PORT, () => {
     console.log(`Secure login running at http://localhost:${PORT}`);
   });
